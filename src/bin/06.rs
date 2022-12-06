@@ -4,8 +4,6 @@ use itertools::Itertools;
 
 pub fn part_one(input: &str) -> Option<u32> {
     for (idx, (a, b, c, d)) in input.chars().tuple_windows::<(_, _, _, _)>().enumerate() {
-        dbg!(idx);
-        println!("{} {} {} {}", a, b, c, d);
         if a != b && a != c && a != d && b != c && b != d && c != d {
             return Some((idx + 4) as u32);
         }
@@ -15,7 +13,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    for (idx, c) in input.chars().enumerate() {
+    for (idx, _) in input.chars().enumerate() {
         if idx < 13 {
             continue;
         }
@@ -29,6 +27,9 @@ pub fn part_two(input: &str) -> Option<u32> {
             };
 
             seen.insert(p, existing.unwrap() + 1);
+        }
+        if seen.into_values().all(|v| v == 1) {
+            return Some((idx + 1) as u32);
         }
     }
     None
