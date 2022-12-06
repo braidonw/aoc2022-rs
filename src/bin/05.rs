@@ -1,7 +1,5 @@
 use std::str::FromStr;
 
-use itertools::Itertools;
-
 #[derive(Debug)]
 struct Crate(char);
 #[derive(Debug)]

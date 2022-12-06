@@ -1,4 +1,3 @@
-use itertools::Itertools;
 #[derive(Debug)]
 struct Item(usize);
 
