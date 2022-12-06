@@ -1,3 +1,5 @@
+use std::{collections::HashMap, ops::Deref};
+
 use itertools::Itertools;
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -13,10 +15,23 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let mut bytes = [0 as usize; 14];
-    input.chars().enumerate().map(|mut acc, (idx, c)| {
-        acc[-1] = c;
-    })
+    for (idx, c) in input.chars().enumerate() {
+        if idx < 13 {
+            continue;
+        }
+        let prev = &input[idx - 13..idx];
+        let mut seen: HashMap<char, usize> = HashMap::new();
+        for p in prev.chars() {
+            let existing = if seen.contains_key(&p) {
+                seen.get(&p)
+            } else {
+                Some(&(0))
+            };
+
+            seen.insert(p, existing.unwrap() + 1);
+        }
+    }
+    None
 }
 
 fn main() {
