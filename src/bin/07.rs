@@ -28,18 +28,14 @@ impl DirectoryListing {
         total
     }
 
+    // Find the smallest value that is greater than the benchmark
     fn smallest_gt_than(&self, benchmark: usize) -> &usize {
-        let mut smallest = usize::MAX;
-
-        let gt_bench = self
-            .0
+        self.0
             .values()
-            .filter(|x| **x > benchmark)
+            .filter(|&x| x > &benchmark)
             .sorted_by(|a, b| a.cmp(b))
-            .collect_vec();
-
-        dbg!(gt_bench);
-        *gt_bench.first().unwrap()
+            .next()
+            .unwrap()
     }
 
     fn used_space(&self) -> &usize {
@@ -82,10 +78,8 @@ pub fn part_one(input: &str) -> Option<usize> {
     let mut listing = DirectoryListing::new();
 
     for line in input.lines() {
-        // println!("Processing line: {:?}", line);
         if line.starts_with('$') {
             let command = Command::from_str(line).unwrap();
-            // println!("Processing command: {:?}", command);
 
             if let Some(new_dir) = command.process() {
                 if new_dir == ".." {
@@ -126,10 +120,8 @@ pub fn part_two(input: &str) -> Option<usize> {
     let mut listing = DirectoryListing::new();
 
     for line in input.lines() {
-        // println!("Processing line: {:?}", line);
         if line.starts_with('$') {
             let command = Command::from_str(line).unwrap();
-            // println!("Processing command: {:?}", command);
 
             if let Some(new_dir) = command.process() {
                 if new_dir == ".." {
@@ -142,7 +134,6 @@ pub fn part_two(input: &str) -> Option<usize> {
         }
 
         if line.chars().next().unwrap().is_ascii_digit() {
-            // println!("Processing output: {:?}", line);
             let size = parse_size(line);
             paths.iter().fold("".to_string(), |acc, x| {
                 let name = acc + "/" + x;
