@@ -88,10 +88,6 @@ impl Grid {
 
                 // from left
                 for k in 0..j {
-                    println!(
-                        "pos: {}, {}, comparing {} with {}",
-                        i, k, self.heights[i][k], height
-                    );
                     if &self.heights[i][k] >= height {
                         break;
                     }
