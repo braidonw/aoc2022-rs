@@ -1,6 +1,5 @@
-use std::{collections::HashMap, str::FromStr};
-
 use itertools::Itertools;
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Debug)]
 struct DirectoryListing(HashMap<String, usize>);
