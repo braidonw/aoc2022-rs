@@ -1,37 +1,32 @@
 use std::str::FromStr;
 
 #[derive(Debug)]
-struct Visiblity {
-    from_left: Vec<Vec<bool>>,
-    from_right: Vec<Vec<bool>>,
-    from_down: Vec<Vec<bool>>,
-    from_up: Vec<Vec<bool>>,
-}
+struct Visiblity(Vec<Vec<bool>>);
 
 impl Visiblity {
     fn new(rows: usize, cols: usize) -> Self {
-        Visiblity {
-            from_left: vec![vec![false; cols]; rows],
-            from_right: vec![vec![false; cols]; rows],
-            from_down: vec![vec![false; cols]; rows],
-            from_up: vec![vec![false; cols]; rows],
+        let mut v = Vec::new();
+        for _ in 0..rows {
+            v.push(vec![false; cols]);
         }
+        Visiblity(v)
     }
 
+    // return the number of visible trees
     fn score(&self) -> usize {
         let mut score = 0;
-        for i in 0..self.from_left.len() {
-            for j in 0..self.from_left[i].len() {
-                if self.from_left[i][j]
-                    || self.from_right[i][j]
-                    || self.from_down[i][j]
-                    || self.from_up[i][j]
-                {
+        for row in &self.0 {
+            for visible in row {
+                if *visible {
                     score += 1;
                 }
             }
         }
         score
+    }
+
+    fn make_visible(&mut self, i: usize, j: usize) {
+        self.0[i][j] = true;
     }
 }
 
@@ -69,56 +64,110 @@ impl FromStr for Grid {
 
 impl Grid {
     fn calculate_visibility(&mut self) {
+        // from left
         for i in 0..self.rows {
+            let mut max = 0;
             for j in 0..self.cols {
-                let height = &self.heights[i][j];
-
-                if j == 0 {
-                    self.visibility.from_left[i][j] = true;
-                }
-                if i == 0 {
-                    self.visibility.from_up[i][j] = true;
-                }
-                if i == self.rows - 1 {
-                    self.visibility.from_down[i][j] = true;
-                }
-                if j == self.cols - 1 {
-                    self.visibility.from_right[i][j] = true;
-                }
-
-                // from left
-                for k in 0..j {
-                    if &self.heights[i][k] >= height {
-                        break;
-                    }
-                    self.visibility.from_left[i][j] = true;
-                }
-
-                // from right
-                for k in (j + 1)..self.cols {
-                    if self.heights[i][k] >= *height {
-                        break;
-                    }
-                    self.visibility.from_right[i][j] = true;
-                }
-
-                // from up
-                for k in 0..i {
-                    if self.heights[k][j] >= *height {
-                        break;
-                    }
-                    self.visibility.from_up[i][j] = true;
-                }
-
-                // from down
-                for k in (i + 1)..self.rows {
-                    if self.heights[k][j] >= *height {
-                        break;
-                    }
-                    self.visibility.from_down[i][j] = true;
+                if j == 0 || self.heights[i][j] > max {
+                    max = self.heights[i][j];
+                    self.visibility.make_visible(i, j);
                 }
             }
         }
+
+        // from up
+        for j in 0..self.cols {
+            let mut max = 0;
+            for i in 0..self.rows {
+                if i == 0 || self.heights[i][j] > max {
+                    max = self.heights[i][j];
+                    self.visibility.make_visible(i, j);
+                }
+            }
+        }
+
+        // from right
+        for i in 0..self.rows {
+            let mut max = 0;
+            for j in (0..self.cols).rev() {
+                if j == self.cols - 1 || self.heights[i][j] > max {
+                    max = self.heights[i][j];
+                    self.visibility.make_visible(i, j);
+                }
+            }
+        }
+
+        // from bottom
+        for j in 0..self.cols {
+            let mut max = 0;
+            for i in (0..self.rows).rev() {
+                if i == self.rows - 1 || self.heights[i][j] > max {
+                    max = self.heights[i][j];
+                    self.visibility.make_visible(i, j);
+                }
+            }
+        }
+    }
+
+    fn max_scenic_score(&self) -> usize {
+        let mut max = 0;
+        for i in 0..self.rows {
+            for j in 0..self.cols {
+                let score = self.check_tree(i, j);
+                if score > max {
+                    max = score;
+                }
+            }
+        }
+        max
+    }
+
+    fn check_tree(&self, row_idx: usize, col_idx: usize) -> usize {
+        // Check how many trees are visible from this tree
+
+        let tree_height = self.heights[row_idx][col_idx];
+
+        // check left
+        let mut left_score = 0;
+        for k in (0..col_idx).rev() {
+            left_score += 1;
+            if self.heights[row_idx][k] >= tree_height {
+                break;
+            }
+        }
+
+        // check right
+        let mut right_score = 0;
+        for k in (col_idx + 1)..self.cols {
+            right_score += 1;
+            if self.heights[row_idx][k] >= tree_height {
+                break;
+            }
+        }
+
+        // check up
+        let mut up_score = 0;
+        for k in (0..row_idx).rev() {
+            up_score += 1;
+            if self.heights[k][col_idx] >= tree_height {
+                break;
+            }
+        }
+
+        // check down
+        let mut down_score = 0;
+        for k in (row_idx + 1)..self.rows {
+            down_score += 1;
+            if self.heights[k][col_idx] >= tree_height {
+                break;
+            }
+        }
+        println!(
+            "checking tree with height: {} at pos {}, {} \nleft_score: {}, right_score: {}, up_score: {}, down_score: {}\n",
+            tree_height, row_idx, col_idx, left_score, right_score, up_score, down_score
+        );
+
+        left_score * right_score * up_score * down_score
     }
 }
 
@@ -126,12 +175,13 @@ pub fn part_one(input: &str) -> Option<usize> {
     let mut grid = Grid::from_str(input).unwrap();
     grid.calculate_visibility();
     let score = grid.visibility.score();
-    dbg!(grid.visibility);
     Some(score)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    None
+pub fn part_two(input: &str) -> Option<usize> {
+    let grid = Grid::from_str(input).unwrap();
+    let scenic_score = grid.max_scenic_score();
+    Some(scenic_score)
 }
 
 fn main() {
@@ -153,6 +203,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let input = advent_of_code::read_file("examples", 8);
-        assert_eq!(part_two(&input), None);
+        assert_eq!(part_two(&input), Some(8));
     }
 }
