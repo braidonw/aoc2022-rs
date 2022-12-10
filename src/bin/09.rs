@@ -65,7 +65,7 @@ impl Position {
         let x_distance = (self.x - other.x).abs();
         let y_distance = (self.y - other.y).abs();
 
-        x_distance == 1 || y_distance == 1
+        x_distance < 2 && y_distance < 2
     }
 }
 
@@ -97,14 +97,15 @@ impl Rope {
             }
 
             if self.tail.x - self.head.x > 1 {
-                self.move_tail(&Direction::Right)
-            } else if self.tail.x - self.head.x < -1 {
                 self.move_tail(&Direction::Left)
+            } else if self.head.x - self.tail.x > 1 {
+                self.move_tail(&Direction::Right)
             } else if self.tail.y - self.head.y > 1 {
                 self.move_tail(&Direction::Up)
-            } else if self.tail.y - self.head.y < -1 {
+            } else if self.head.y - self.tail.y > 1 {
                 self.move_tail(&Direction::Down)
             }
+            dbg!(&self);
         }
     }
 
@@ -124,7 +125,9 @@ pub fn part_one(input: &str) -> Option<u32> {
         .map(|line| Command::from_str(line).unwrap())
         .collect();
     for command in commands {
+        dbg!(&command);
         rope.handle_command(command);
+        dbg!(&rope);
     }
     dbg!(rope);
     None
