@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::HashSet, str::FromStr};
 
 #[derive(Debug)]
 struct Command {
@@ -34,14 +34,14 @@ enum Direction {
     Right,
 }
 
-#[derive(Debug)]
-struct Position {
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
+struct Knot {
     x: i32,
     y: i32,
 }
-impl Position {
+impl Knot {
     fn new() -> Self {
-        Position { x: 0, y: 0 }
+        Knot { x: 0, y: 0 }
     }
 
     fn step(&mut self, direction: &Direction) {
@@ -61,80 +61,116 @@ impl Position {
         }
     }
 
-    fn touches(&self, other: &Position) -> bool {
+    fn touches(&self, other: &Knot) -> bool {
         let x_distance = (self.x - other.x).abs();
         let y_distance = (self.y - other.y).abs();
 
         x_distance < 2 && y_distance < 2
     }
+
+    fn move_relative_to(&mut self, other: &Knot) {
+        if self.x == other.x {
+            if self.y < other.y {
+                self.step(&Direction::Up)
+            } else {
+                self.step(&Direction::Down)
+            }
+        } else if self.y == other.y {
+            if self.x < other.x {
+                self.step(&Direction::Right)
+            } else {
+                self.step(&Direction::Left)
+            }
+        } else {
+            if self.y < other.y {
+                self.step(&Direction::Up)
+            } else {
+                self.step(&Direction::Down)
+            }
+            if self.x < other.x {
+                self.step(&Direction::Right)
+            } else {
+                self.step(&Direction::Left)
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
 struct Rope {
-    head: Position,
-    tail: Position,
+    knots: Vec<Knot>,
+    tail_positions: HashSet<Knot>,
 }
 
 impl Rope {
-    fn new() -> Self {
+    fn new(size: usize) -> Self {
+        let knots = vec![Knot::new(); size];
+        let mut positions = HashSet::new();
+        positions.insert(Knot::new());
         Rope {
-            head: Position::new(),
-            tail: Position::new(),
+            knots,
+            tail_positions: positions,
         }
     }
 
     fn handle_command(&mut self, command: Command) {
         for _ in 0..command.distance {
-            self.move_head(&command.direction);
-
-            if self.tail.touches(&self.head) {
-                continue;
-            }
-
-            self.tail.step(&command.direction);
-            if self.tail.touches(&self.head) {
-                continue;
-            }
-
-            if self.tail.x - self.head.x > 1 {
-                self.move_tail(&Direction::Left)
-            } else if self.head.x - self.tail.x > 1 {
-                self.move_tail(&Direction::Right)
-            } else if self.tail.y - self.head.y > 1 {
-                self.move_tail(&Direction::Up)
-            } else if self.head.y - self.tail.y > 1 {
-                self.move_tail(&Direction::Down)
-            }
-            dbg!(&self);
+            self.move_rope(&command.direction);
+            self.tail_positions.insert(*self.knots.last().unwrap());
         }
     }
 
-    fn move_head(&mut self, direction: &Direction) {
-        self.head.step(direction);
+    fn move_rope(&mut self, direction: &Direction) {
+        self.knots.iter_mut().fold(None, |prev, knot| {
+            // if the first iteration, set prev to knot and continue
+            if prev.is_none() {
+                knot.step(direction);
+                return Some(*knot);
+            }
+
+            // if the knots touch, no movement necessary
+            if knot.touches(&prev.unwrap()) {
+                return Some(*knot);
+            }
+
+            // If the knot doesn't touch the previous, then move it relative to the previous
+            knot.move_relative_to(&prev.unwrap());
+            Some(*knot)
+        });
     }
 
-    fn move_tail(&mut self, direction: &Direction) {
-        self.tail.step(direction);
+    fn print(&self) {
+        for (i, knot) in self.knots.iter().enumerate() {
+            println!("Knot {} - {}, {}", i, knot.x, knot.y);
+        }
+        println!();
     }
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
-    let mut rope = Rope::new();
+pub fn part_one(input: &str) -> Option<usize> {
+    let mut rope = Rope::new(2);
     let commands: Vec<_> = input
         .lines()
         .map(|line| Command::from_str(line).unwrap())
         .collect();
     for command in commands {
-        dbg!(&command);
         rope.handle_command(command);
-        dbg!(&rope);
     }
-    dbg!(rope);
-    None
+    Some(rope.tail_positions.len())
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    None
+pub fn part_two(input: &str) -> Option<usize> {
+    let mut rope = Rope::new(10);
+    let commands: Vec<_> = input
+        .lines()
+        .map(|line| Command::from_str(line).unwrap())
+        .collect();
+
+    for command in commands {
+        rope.handle_command(command);
+    }
+    rope.print();
+    Some(rope.tail_positions.len())
 }
 
 fn main() {
@@ -146,16 +182,26 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{env, fs};
+
+    fn read_file(folder: &str, name: &str) -> String {
+        let cwd = env::current_dir().unwrap();
+
+        let filepath = cwd.join("src").join(folder).join(format!("{}.txt", name));
+
+        let f = fs::read_to_string(filepath);
+        f.expect("could not open input file")
+    }
 
     #[test]
     fn test_part_one() {
-        let input = advent_of_code::read_file("examples", 9);
+        let input = read_file("examples", "09_01");
         assert_eq!(part_one(&input), Some(13));
     }
 
     #[test]
     fn test_part_two() {
-        let input = advent_of_code::read_file("examples", 9);
-        assert_eq!(part_two(&input), None);
+        let input = read_file("examples", "09_02");
+        assert_eq!(part_two(&input), Some(36));
     }
 }
