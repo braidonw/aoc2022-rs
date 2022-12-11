@@ -156,7 +156,7 @@ pub fn part_two(input: &str) -> Option<u128> {
     let mut inspect_counts = vec![0; monkeys.len()];
 
     let lcm: u128 = monkeys.iter().map(|m| m.test_divisor).product();
-    for i in 1..=10000 {
+    for _ in 1..=10000 {
         for (i, monkey) in monkeys.iter().enumerate() {
             for item in monkey.items.borrow_mut().iter_mut() {
                 inspect_counts[i] += 1;
