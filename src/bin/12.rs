@@ -24,10 +24,13 @@ impl Height {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-struct Position(usize, usize);
+struct Position {
+    x: usize,
+    y: usize,
+}
 impl Position {
     fn new(x: usize, y: usize) -> Self {
-        Position(x, y)
+        Position { x, y }
     }
 }
 
@@ -52,11 +55,11 @@ impl FromStr for Grid {
             for (j, c) in line.chars().enumerate() {
                 row.push(Height::try_from(c)?);
                 if c == 'S' {
-                    start = Position::new(i, j);
+                    start = Position::new(j, i);
                 }
 
                 if c == 'E' {
-                    end = Position::new(i, j);
+                    end = Position::new(j, i);
                 }
             }
             heights.push(row);
@@ -74,25 +77,25 @@ impl FromStr for Grid {
 
 impl Grid {
     fn height_for(&self, pos: &Position) -> &Height {
-        &self.heights[pos.0][pos.1]
+        &self.heights[pos.y][pos.x]
     }
 
     fn neighbours_for(&self, pos: &Position) -> Vec<Position> {
         let mut neighbours = Vec::new();
-        if pos.0 > 0 {
-            neighbours.push(Position::new(pos.0 - 1, pos.1));
+        if pos.x > 0 {
+            neighbours.push(Position::new(pos.x - 1, pos.y));
         }
 
-        if pos.0 < self.rows - 1 {
-            neighbours.push(Position::new(pos.0 + 1, pos.1));
+        if pos.x < self.cols - 1 {
+            neighbours.push(Position::new(pos.x + 1, pos.y));
         }
 
-        if pos.1 > 0 {
-            neighbours.push(Position::new(pos.0, pos.1 - 1));
+        if pos.y > 0 {
+            neighbours.push(Position::new(pos.x, pos.y - 1));
         }
 
-        if pos.1 < self.cols - 1 {
-            neighbours.push(Position::new(pos.0, pos.1 + 1));
+        if pos.y < self.rows - 1 {
+            neighbours.push(Position::new(pos.x, pos.y + 1));
         }
 
         neighbours
@@ -132,8 +135,9 @@ impl Grid {
         let mut positions = Vec::new();
         for row in 0..self.rows {
             for col in 0..self.cols {
-                if self.heights[row][col].0 == 1 {
-                    positions.push(Position::new(col, row));
+                let pos = Position::new(col, row);
+                if self.height_for(&pos).0 == 1 {
+                    positions.push(pos);
                 }
             }
         }
@@ -152,16 +156,13 @@ pub fn part_two(input: &str) -> Option<u32> {
     let mut distances: Vec<u32> = Vec::new();
     let grid = Grid::from_str(input).unwrap();
     let starts = grid.all_starting_nodes();
-    dbg!(&starts);
-    // for s in starts {
-    //     let dist = grid.bfs(s);
-    //     dbg!(s, &dist);
-    //     distances.push(dist);
-    // }
+    for s in starts {
+        let dist = grid.bfs(s);
+        distances.push(dist);
+    }
     distances.sort();
-    let dist = grid.bfs(Position::new(0, 4));
 
-    Some(dist)
+    Some(*distances.first().unwrap())
 }
 
 fn main() {
