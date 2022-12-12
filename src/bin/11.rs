@@ -108,17 +108,13 @@ impl Monkey {
     fn test(&self, item: &Item) -> bool {
         item.worry_level % self.test_divisor == 0
     }
-
-    fn print_items(&self) {
-        println!("Monkey: {:?}", self.items.borrow());
-    }
 }
 
 pub fn part_one(input: &str) -> Option<u128> {
     let monkeys: Vec<Monkey> = input.split("\n\n").map(|s| s.parse().unwrap()).collect();
     let mut inspect_counts = vec![0; monkeys.len()];
 
-    for i in 1..=20 {
+    for _ in 1..=20 {
         for (i, monkey) in monkeys.iter().enumerate() {
             for item in monkey.items.borrow_mut().iter_mut() {
                 inspect_counts[i] += 1;
@@ -134,12 +130,6 @@ pub fn part_one(input: &str) -> Option<u128> {
             }
             monkey.items.borrow_mut().clear();
         }
-
-        // println!("Round: {}", i);
-        // for monkey in &monkeys {
-        //     monkey.print_items();
-        // }
-        // println!();
     }
 
     let monkey_business: u128 = inspect_counts
@@ -172,12 +162,6 @@ pub fn part_two(input: &str) -> Option<u128> {
             }
             monkey.items.borrow_mut().clear();
         }
-
-        // println!("Round: {}", i);
-        // for monkey in &monkeys {
-        //     monkey.print_items();
-        // }
-        // println!();
     }
 
     let monkey_business: u128 = inspect_counts
