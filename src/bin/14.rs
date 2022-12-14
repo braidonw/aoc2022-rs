@@ -97,6 +97,26 @@ struct Grid {
     units: Vec<Vec<Unit>>,
 }
 
+impl Grid {
+    fn new(rocks: Vec<Point>) -> Self {
+        let mut width = 0;
+        let mut height = 0;
+        for rock in rocks {
+            width = width.max(rock.x as usize);
+            height = height.max(rock.y as usize);
+        }
+        let mut units = vec![vec![Unit::Air; width]; height];
+        for rock in rocks {
+            units[rock.y as usize][rock.x as usize] = Unit::Rock;
+        }
+        Self {
+            width,
+            height,
+            units,
+        }
+    }
+}
+
 pub fn part_one(input: &str) -> Option<u32> {
     let paths = parse_paths(input).unwrap().1;
     let rocks: Vec<_> = paths.iter().flat_map(|p| p.rocks()).collect();
