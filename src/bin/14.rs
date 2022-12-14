@@ -32,6 +32,12 @@ struct Point {
     y: i32,
 }
 
+enum Unit {
+    Rock,
+    Air,
+    Sand,
+}
+
 #[derive(Debug, Clone)]
 struct Path {
     points: Vec<Point>,
@@ -45,6 +51,15 @@ impl Path {
     }
 
     // Return the points on the straight lines between points
+    fn rocks(&self) -> Vec<Point> {
+        let mut rocks = vec![];
+        for i in 0..self.points.len() - 1 {
+            let p1 = &self.points[i];
+            let p2 = &self.points[i + 1];
+            rocks.extend(points_between(p1, p2));
+        }
+        rocks
+    }
 }
 
 fn points_between(p1: &Point, p2: &Point) -> Vec<Point> {
@@ -76,9 +91,16 @@ fn points_between(p1: &Point, p2: &Point) -> Vec<Point> {
     points
 }
 
+struct Grid {
+    width: usize,
+    height: usize,
+    units: Vec<Vec<Unit>>,
+}
+
 pub fn part_one(input: &str) -> Option<u32> {
     let paths = parse_paths(input).unwrap().1;
-    dbg!(paths);
+    let rocks: Vec<_> = paths.iter().flat_map(|p| p.rocks()).collect();
+
     None
 }
 
