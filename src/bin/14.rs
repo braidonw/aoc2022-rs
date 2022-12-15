@@ -1,131 +1,156 @@
+use std::collections::BTreeSet;
+
+use itertools::Itertools;
 use nom::{
     bytes::complete::tag,
-    character::complete::newline,
-    multi::{separated_list0, separated_list1},
+    character::complete::{self, char, newline},
+    multi::separated_list1,
     sequence::separated_pair,
     IResult,
 };
 
-fn parse_paths(input: &str) -> IResult<&str, Vec<Path>> {
-    separated_list1(newline, parse_path)(input)
+fn parse_rocks(input: &str) -> IResult<&str, BTreeSet<(u32, u32)>> {
+    let (input, pairs) = separated_list1(newline, parse_line)(input)?;
+    let rocks: BTreeSet<(u32, u32)> = pairs.into_iter().flatten().collect();
+    Ok((input, rocks))
 }
 
-fn parse_path(input: &str) -> IResult<&str, Path> {
-    // separated_list0(tag(" -> "), parse_point).map(|points| Path { points })(input)
-    let (rest, points) = separated_list0(tag(" -> "), parse_point)(input)?;
-    Ok((rest, Path::new(&points)))
+fn parse_line(input: &str) -> IResult<&str, impl Iterator<Item = (u32, u32)>> {
+    let (input, pairs) = separated_list1(
+        tag(" -> "),
+        separated_pair(complete::u32, char(','), complete::u32),
+    )(input)?;
+
+    let iter = pairs
+        .into_iter()
+        .tuple_windows()
+        .flat_map(|((x1, y1), (x2, y2))| {
+            let x_range = x1.min(x2)..=x1.max(x2);
+            let y_range = y1.min(y2)..=y1.max(y2);
+
+            x_range.cartesian_product(y_range)
+        });
+
+    Ok((input, iter))
 }
 
-fn parse_point(i: &str) -> IResult<&str, Point> {
-    let (rest, (x, y)) = separated_pair(
-        nom::character::complete::i32,
-        tag(","),
-        nom::character::complete::i32,
-    )(i)?;
-
-    Ok((rest, Point { x, y }))
-}
-
-#[derive(Debug, Clone)]
-struct Point {
-    x: i32,
-    y: i32,
-}
-
-enum Unit {
-    Rock,
-    Air,
-    Sand,
-}
-
-#[derive(Debug, Clone)]
-struct Path {
-    points: Vec<Point>,
-}
-
-impl Path {
-    fn new(points: &[Point]) -> Self {
-        Self {
-            points: points.to_vec(),
-        }
-    }
-
-    // Return the points on the straight lines between points
-    fn rocks(&self) -> Vec<Point> {
-        let mut rocks = vec![];
-        for i in 0..self.points.len() - 1 {
-            let p1 = &self.points[i];
-            let p2 = &self.points[i + 1];
-            rocks.extend(points_between(p1, p2));
-        }
-        rocks
-    }
-}
-
-fn points_between(p1: &Point, p2: &Point) -> Vec<Point> {
-    let mut points = vec![];
-    let x1 = p1.x;
-    let y1 = p1.y;
-    let x2 = p2.x;
-    let y2 = p2.y;
-    let dx = (x2 - x1).abs();
-    let dy = (y2 - y1).abs();
-    let sx = if x1 < x2 { 1 } else { -1 };
-    let sy = if y1 < y2 { 1 } else { -1 };
-    let mut err = dx - dy;
-
-    let mut x = x1;
-    let mut y = y1;
-    while x != x2 || y != y2 {
-        points.push(Point { x, y });
-        let e2 = 2 * err;
-        if e2 > -dy {
-            err -= dy;
-            x += sx;
-        }
-        if e2 < dx {
-            err += dx;
-            y += sy;
-        }
-    }
-    points
-}
-
+#[derive(Debug)]
 struct Grid {
-    width: usize,
-    height: usize,
-    units: Vec<Vec<Unit>>,
+    rocks: BTreeSet<(u32, u32)>,
+    num_rocks: u32,
+    floor: (u32, u32),
 }
 
 impl Grid {
-    fn new(rocks: Vec<Point>) -> Self {
-        let mut width = 0;
-        let mut height = 0;
-        for rock in rocks {
-            width = width.max(rock.x as usize);
-            height = height.max(rock.y as usize);
-        }
-        let mut units = vec![vec![Unit::Air; width]; height];
-        for rock in rocks {
-            units[rock.y as usize][rock.x as usize] = Unit::Rock;
-        }
+    fn new(rocks: BTreeSet<(u32, u32)>) -> Self {
+        let num_rocks = rocks.len() as u32;
+        let mut rocks_2 = rocks.iter().collect::<Vec<&(u32, u32)>>();
+        rocks_2.sort_by(|a, b| a.1.cmp(&b.1));
+        let floor = **rocks_2.last().unwrap();
         Self {
-            width,
-            height,
-            units,
+            rocks,
+            num_rocks,
+            floor,
+        }
+    }
+
+    fn count_sand(&self) -> u32 {
+        (self.rocks.len() - self.num_rocks as usize) as u32
+    }
+
+    fn drop_sand(&mut self) {
+        let mut sand = (500, 0);
+        loop {
+            if sand.1 > self.floor.1 {
+                break;
+            }
+
+            let down = (sand.0, sand.1 + 1);
+            let down_left = (sand.0 - 1, sand.1 + 1);
+            let down_right = (sand.0 + 1, sand.1 + 1);
+
+            match (
+                self.rocks.contains(&down),
+                self.rocks.contains(&down_left),
+                self.rocks.contains(&down_right),
+            ) {
+                (true, true, true) => {
+                    self.rocks.insert(sand);
+                    sand = (500, 0);
+                }
+                (false, _, _) => {
+                    sand = down;
+                }
+                (_, false, _) => {
+                    sand = down_left;
+                }
+                (_, _, false) => {
+                    sand = down_right;
+                }
+            }
+        }
+    }
+
+    fn drop_sand_until_at_roof(&mut self) {
+        let mut sand = (500, 0);
+        while self.rocks.get(&(500, 0)).is_none() {
+            let down = (sand.0, sand.1 + 1);
+            let down_left = (sand.0 - 1, sand.1 + 1);
+            let down_right = (sand.0 + 1, sand.1 + 1);
+
+            match (
+                self.rocks.get(&down).or({
+                    if down.1 == self.floor.1 + 2 {
+                        Some(&self.floor)
+                    } else {
+                        None
+                    }
+                }),
+                self.rocks.get(&down_left).or({
+                    if down_left.1 == self.floor.1 + 2 {
+                        Some(&self.floor)
+                    } else {
+                        None
+                    }
+                }),
+                self.rocks.get(&down_right).or({
+                    if down_right.1 == self.floor.1 + 2 {
+                        Some(&self.floor)
+                    } else {
+                        None
+                    }
+                }),
+            ) {
+                (Some(_), Some(_), Some(_)) => {
+                    self.rocks.insert(sand);
+                    sand = (500, 0);
+                }
+                (None, _, _) => {
+                    sand = down;
+                }
+                (_, None, _) => {
+                    sand = down_left;
+                }
+                (_, _, None) => {
+                    sand = down_right;
+                }
+            }
         }
     }
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let paths = parse_paths(input).unwrap().1;
-    let rocks: Vec<_> = paths.iter().flat_map(|p| p.rocks()).collect();
-
-    None
+    let rocks = parse_rocks(input).ok()?.1;
+    let mut grid = Grid::new(rocks);
+    grid.drop_sand();
+    Some(grid.count_sand())
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    let rocks = parse_rocks(input).ok()?.1;
+    let mut grid = Grid::new(rocks);
+    grid.drop_sand_until_at_roof();
+    Some(grid.count_sand())
 }
 
 fn main() {
@@ -147,6 +172,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let input = advent_of_code::read_file("examples", 14);
-        assert_eq!(part_two(&input), None);
+        assert_eq!(part_two(&input), Some(93));
     }
 }
