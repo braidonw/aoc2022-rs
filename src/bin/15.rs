@@ -1,3 +1,5 @@
+use std::collections::{BTreeMap, BTreeSet};
+
 use nom::{
     bytes::complete::tag,
     character::complete::newline,
@@ -54,7 +56,7 @@ fn parse_beacon(i: &str) -> IResult<&str, Point> {
     Ok((i, Point { x, y }))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Point {
     x: i32,
     y: i32,
@@ -65,20 +67,125 @@ impl Point {
         (self.x - other.x).abs() + (self.y - other.y).abs()
     }
 }
-struct Grid {}
-pub fn part_one(input: &str, y: i32) -> Option<u32> {
+#[derive(Debug)]
+struct Grid {
+    sensors: Vec<Point>,
+    beacons: BTreeSet<Point>,
+    pairs: BTreeMap<Point, Point>,
+}
+
+impl Grid {
+    fn new(pairs: Vec<Pair>) -> Self {
+        let sensors = pairs.iter().map(|p| p.sensor).collect::<Vec<_>>();
+        let beacons: BTreeSet<Point> = pairs.iter().map(|p| p.beacon).collect();
+
+        let sensor_beacon_pairs = pairs
+            .iter()
+            .map(|p| (p.sensor, p.beacon))
+            .collect::<BTreeMap<_, _>>();
+
+        Self {
+            sensors,
+            beacons,
+            pairs: sensor_beacon_pairs,
+        }
+    }
+
+    fn find_intersections_at_y(&self, line: i32) -> i32 {
+        let intersections: BTreeSet<_> = self
+            .sensors
+            .iter()
+            .filter_map(|s| {
+                let beacon = self.pairs.get(s).unwrap();
+                let distance_to_beacon = s.manhattan_distance_to(beacon);
+                let distance_to_line = (s.y - line).abs();
+                if distance_to_line > distance_to_beacon {
+                    return None;
+                }
+                let dx = distance_to_beacon - distance_to_line;
+                let points: Vec<_> = ((s.x - dx)..=(s.x + dx))
+                    .into_iter()
+                    .map(|x| Point { x, y: line })
+                    .collect();
+
+                Some(points)
+            })
+            .flatten()
+            .collect();
+
+        intersections.iter().len() as i32
+            - self.beacons.iter().filter(|b| b.y == line).count() as i32
+    }
+
+    fn greated_y_intercept(&self, sensor: &Point, y: i32) -> Option<Point> {
+        let beacon = self.pairs.get(sensor).unwrap();
+        let distance_to_beacon = sensor.manhattan_distance_to(beacon);
+        let distance_to_line = (sensor.y - y).abs();
+        if distance_to_line > distance_to_beacon {
+            return None;
+        }
+        let dx = distance_to_beacon - distance_to_line;
+        Some(Point {
+            x: sensor.x + dx,
+            y,
+        })
+    }
+
+    fn find_distress_beacon_xy(&self, grid_size: u32) -> Point {
+        for y in 0..grid_size {
+            let mut x: u32 = 0;
+            'x: while x <= grid_size {
+                for s in &self.sensors {
+                    let beacon = self.pairs.get(s).unwrap();
+
+                    let distance_to_beacon = s.manhattan_distance_to(beacon);
+                    let distance_to_xy = s.manhattan_distance_to(&Point {
+                        x: x as i32,
+                        y: y as i32,
+                    });
+
+                    dbg!(&s, &beacon, distance_to_beacon, distance_to_xy);
+
+                    if distance_to_xy < distance_to_beacon {
+                        let new_point = self.greated_y_intercept(s, y as i32).unwrap();
+                        x = new_point.x as u32;
+                        continue 'x;
+                    }
+                }
+                println!("No sensor found for {}, {}", x, y);
+                return Point {
+                    x: x as i32,
+                    y: y as i32,
+                };
+            }
+        }
+        unreachable!()
+    }
+}
+
+fn tuning_frequency(point: &Point) -> u32 {
+    (point.x * 4000000 + point.y) as u32
+}
+pub fn part_one(input: &str) -> Option<i32> {
     let (_, pairs) = parse(input).unwrap();
-    dbg!(pairs);
-    None
+    let grid = Grid::new(pairs);
+    let count = grid.find_intersections_at_y(2000000);
+    Some(count)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
+    let (_, pairs) = parse(input).unwrap();
+    let grid = Grid::new(pairs);
+    let beacon_point = grid.find_distress_beacon_xy(20);
+    let f = tuning_frequency(&beacon_point);
+
+    dbg!(&beacon_point, f);
     None
 }
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 15);
-    advent_of_code::solve!(1, part_one, input, 2000000);
+    advent_of_code::solve!(1, part_one, input);
     advent_of_code::solve!(2, part_two, input);
 }
 
@@ -89,12 +196,14 @@ mod tests {
     #[test]
     fn test_part_one() {
         let input = advent_of_code::read_file("examples", 15);
-        assert_eq!(part_one(&input, 10), Some(26));
+        let grid = Grid::new(parse(&input).unwrap().1);
+        let count = grid.find_intersections_at_y(10);
+        assert_eq!(count, 26);
     }
 
     #[test]
     fn test_part_two() {
         let input = advent_of_code::read_file("examples", 15);
-        assert_eq!(part_two(&input), None);
+        assert_eq!(part_two(&input), Some(56000011));
     }
 }
