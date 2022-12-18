@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
-    character::complete::{self, newline},
-    complete::tag,
+    bytes::complete::tag,
+    character::complete::{self, line_ending},
     multi::{many1, separated_list1},
     IResult, Parser,
 };
@@ -31,11 +31,12 @@ enum Move {
     Right,
 }
 
+#[derive(Debug)]
 enum Rock {
     Rock,
     Air,
 }
-
+#[derive(Debug)]
 struct Shape {
     rocks: Vec<Vec<Rock>>,
 }
@@ -48,20 +49,25 @@ fn parse_moves(input: &str) -> IResult<&str, Vec<Move>> {
 }
 
 fn parse_shapes(input: &str) -> IResult<&str, Vec<Shape>> {
-    let (input, rocks) = separated_list1(
+    let (input, shapes) = separated_list1(
         tag("\n\n"),
         separated_list1(
-            newline,
+            line_ending,
             many1(alt((
-                complete::char('.').map(|_| Rock::Air),
                 complete::char('#').map(|_| Rock::Rock),
+                complete::char('.').map(|_| Rock::Air),
             ))),
-        ),
-    )(input)
+        )
+        .map(|rocks| Shape { rocks }),
+    )(input)?;
+    Ok((input, shapes))
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    dbg!(parse_moves(input));
+    let (_, moves) = parse_moves(input).unwrap();
+    let (_, rocks) = parse_shapes(ROCKS).unwrap();
+    dbg!(&rocks);
+    dbg!(&moves);
     None
 }
 
